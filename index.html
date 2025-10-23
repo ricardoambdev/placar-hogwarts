@@ -1,27 +1,157 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Placar das Casas - Hogwarts</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Placar das Casas</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background-color: #FF6600;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding: 20px;
+    }
 
-  <!-- Firebase -->
-  <script type="module" src="script.js"></script>
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .card {
+      background: rgba(0,0,0,0.15);
+      border-radius: 20px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      transform: scale(1.03);
+      box-shadow: 0 14px 28px rgba(0,0,0,0.4);
+    }
+
+    .crest {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      margin-bottom: 10px;
+      filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.4));
+    }
+
+    .house {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .points {
+      font-size: 3rem;
+      font-weight: 900;
+    }
+
+    /* Cores específicas das casas */
+    .grifinoria .house { color: #B71C1C; }
+    .lufalufa .house { color: #FBBF24; }
+    .corvinal .house { color: #2563EB; }
+    .sonserina .house { color: #16A34A; }
+
+  </style>
 </head>
 <body>
-  <h1>🏆 Placar das Casas de Hogwarts 🏆</h1>
-  <div id="placar" class="placar">
-    <div class="casa" id="grifinoria"><h2>Grifinória</h2><p>0</p></div>
-    <div class="casa" id="sonserina"><h2>Sonserina</h2><p>0</p></div>
-    <div class="casa" id="lufa-lufa"><h2>Lufa-Lufa</h2><p>0</p></div>
-    <div class="casa" id="corvinal"><h2>Corvinal</h2><p>0</p></div>
+  <h1>Placar das Casas de Hogwarts</h1>
+
+  <div class="grid" id="placar">
+    <!-- casas geradas via JS -->
   </div>
 
-  <p class="creditos">Atualizado em tempo real ✨</p>
-  <script>
-    // O script.js já está importado no head
-    console.log('123')
+  <script type="module">
+    // ======= SUA CONFIGURAÇÃO DO FIREBASE =======
+    const firebaseConfig = {
+        apiKey: "AIzaSyDOcf7FcetuH2sENUikQ70wlnB6tvMkquk",
+        authDomain: "hogtwars-ricardoamb.firebaseapp.com",
+        databaseURL: "https://hogtwars-ricardoamb-default-rtdb.firebaseio.com",
+        projectId: "hogtwars-ricardoamb",
+        storageBucket: "hogtwars-ricardoamb.firebasestorage.app",
+        messagingSenderId: "826195686831",
+        appId: "1:826195686831:web:c69c00534f43b41ac2ab5a",
+        measurementId: "G-WBBD067F9X"
+    };
+    // =============================================
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const houses = [
+      {
+        id: "grifinoria",
+        label: "Grifinória",
+        crest: "https://ricardoambdev.github.io/tacadascasas/client/logos/grifinoria.png"
+      },
+      {
+        id: "lufa-lufa",
+        label: "Lufa-Lufa",
+        crest: "https://ricardoambdev.github.io/tacadascasas/client/logos/lufalufa.png"
+      },
+      {
+        id: "corvinal",
+        label: "Corvinal",
+        crest: "https://ricardoambdev.github.io/tacadascasas/client/logos/corvinal.png"
+      },
+      {
+        id: "sonserina",
+        label: "Sonserina",
+        crest: "https://ricardoambdev.github.io/tacadascasas/client/logos/sonserina.png"
+      }
+    ];
+
+    const grid = document.getElementById("placar");
+
+    // cria o card de cada casa
+    function createCard(h) {
+      const card = document.createElement("div");
+      card.className = `card ${h.id.replace('-', '')}`;
+      card.innerHTML = `
+        <img src="${h.crest}" alt="${h.label}" class="crest" />
+        <div class="house">${h.label}</div>
+        <div class="points" id="points-${h.id}">—</div>
+      `;
+      grid.appendChild(card);
+
+      // escuta o firestore em tempo real
+      const ref = doc(db, "casas", h.id);
+      onSnapshot(ref, (snap) => {
+        if (snap.exists() && typeof snap.data().pontos === "number") {
+          document.getElementById(`points-${h.id}`).textContent = snap.data().pontos;
+        } else {
+          document.getElementById(`points-${h.id}`).textContent = "0";
+        }
+      });
+    }
+
+    houses.forEach(createCard);
   </script>
 </body>
 </html>
