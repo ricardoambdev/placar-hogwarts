@@ -82,3 +82,12 @@ if (document.title.includes("Administração")) {
     containerCasas.addEventListener("click", async (e) => {
       if (e.target.tagName === "BUTTON") {
         const casa = e.target.dataset.casa;
+        const valor = parseInt(e.target.dataset.valor);
+        const ref = doc(db, "casas", casa);
+        const snap = await getDoc(ref);
+        const pontosAtuais = snap.data().pontos;
+        await updateDoc(ref, { pontos: pontosAtuais + valor });
+      }
+    });
+  }
+}
