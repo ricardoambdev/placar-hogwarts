@@ -9,12 +9,14 @@ import {
 
 // ⚙️ Config do teu Firebase
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY_AQUI",
+  apiKey: "AIzaSyDOcf7FcetuH2sENUikQ70wlnB6tvMkquk",
   authDomain: "hogtwars-ricardoamb.firebaseapp.com",
+  databaseURL: "https://hogtwars-ricardoamb-default-rtdb.firebaseio.com",
   projectId: "hogtwars-ricardoamb",
-  storageBucket: "hogtwars-ricardoamb.appspot.com",
-  messagingSenderId: "XXXXXXX",
-  appId: "XXXXXXXXX",
+  storageBucket: "hogtwars-ricardoamb.firebasestorage.app",
+  messagingSenderId: "826195686831",
+  appId: "1:826195686831:web:c69c00534f43b41ac2ab5a",
+  measurementId: "G-WBBD067F9X"
 };
 
 const app = initializeApp(firebaseConfig);

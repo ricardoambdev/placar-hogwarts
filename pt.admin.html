@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Painel Admin — Placar Casas (sem senha)</title>
+  <style>
+    :root{--bg:#071021;--card:#0f1724;--white:#fff;--muted:#9aa4b2;--gap:12px}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,#041019,#071021);color:var(--white);min-height:100vh;padding:18px}
+    .wrap{max-width:980px;margin:0 auto}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+    .title{font-size:20px;font-weight:800}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--gap)}
+    .card{background:var(--card);border-radius:12px;padding:16px;text-align:center;box-shadow:0 8px 24px rgba(2,6,23,0.6)}
+    .house{font-weight:800;text-transform:uppercase;margin-bottom:8px}
+    .points{font-size:40px;font-weight:900;margin-bottom:12px}
+    .buttons{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+    .btn{padding:8px 12px;border-radius:8px;border:none;font-weight:800;cursor:pointer;min-width:62px}
+    .btn.minus{background:#ef4444;color:#fff}
+    .btn.plus{background:#10b981;color:#fff}
+    .hint{color:var(--muted);font-size:13px;text-align:center;margin-top:16px}
+    @media(max-width:600px){.points{font-size:28px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="title">⚡ Painel Rápido — Placar das Casas (SEM SENHA)</div>
+      <div style="font-size:13px;color:#9aa4b2">Atualizações: em tempo real via Firestore</div>
+    </div>
+
+    <div id="grid" class="grid">
+      <!-- cards gerados por JS -->
+    </div>
+
+    <div class="hint">Cuidado: sem senha. Se quiser, volte para a versão anterior com senha.</div>
+  </div>
+
+  <script type="module">
+    // ======= COLE AQUI SUA CONFIGURAÇÃO DO FIREBASE =======
+    const firebaseConfig = {
+        apiKey: "AIzaSyDOcf7FcetuH2sENUikQ70wlnB6tvMkquk",
+        authDomain: "hogtwars-ricardoamb.firebaseapp.com",
+        databaseURL: "https://hogtwars-ricardoamb-default-rtdb.firebaseio.com",
+        projectId: "hogtwars-ricardoamb",
+        storageBucket: "hogtwars-ricardoamb.firebasestorage.app",
+        messagingSenderId: "826195686831",
+        appId: "1:826195686831:web:c69c00534f43b41ac2ab5a",
+        measurementId: "G-WBBD067F9X"
+    };
+    // =====================================================
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      onSnapshot,
+      runTransaction
+    } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const houses = [
+      { id: "grifinoria", label: "Grifinória", color: "#b91c1c" },
+      { id: "lufa-lufa", label: "Lufa-Lufa", color: "#f59e0b" },
+      { id: "corvinal", label: "Corvinal", color: "#2563eb" },
+      { id: "sonserina", label: "Sonserina", color: "#16a34a" }
+    ];
+
+    const grid = document.getElementById('grid');
+
+    function makeCard(h){
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = `card-${h.id}`;
+      card.innerHTML = `
+        <div class="house" style="color:${h.color}">${h.label}</div>
+        <div class="points" id="points-${h.id}">—</div>
+        <div class="buttons" id="buttons-${h.id}"></div>
+      `;
+      grid.appendChild(card);
+
+      const btnValues = [-10,-5,-1,1,5,10];
+      const btnsWrap = card.querySelector(`#buttons-${h.id}`);
+      btnValues.forEach(v=>{
+        const b = document.createElement('button');
+        b.className = 'btn ' + (v>0 ? 'plus' : 'minus');
+        b.textContent = v>0 ? `+${v}` : `${v}`;
+        b.onclick = ()=> changePoints(h.id, v);
+        // proteção simples: confirmação para grandes deltas
+        if(Math.abs(v) >= 10){
+          b.addEventListener('click', (ev) => {
+            if(!confirm(`${v>0? 'Adicionar' : 'Remover'} ${Math.abs(v)} pontos para ${h.label}?`)) ev.stopImmediatePropagation();
+          }, {capture:true});
+        }
+        btnsWrap.appendChild(b);
+      });
+
+      // realtime update do ponto
+      const ref = doc(db, "casas", h.id);
+      onSnapshot(ref, snap=>{
+        if(snap.exists() && typeof snap.data().pontos === 'number'){
+          document.getElementById(`points-${h.id}`).textContent = snap.data().pontos;
+        } else {
+          document.getElementById(`points-${h.id}`).textContent = 0;
+        }
+      }, err=>{
+        console.error("snapshot erro", err);
+      });
+    }
+
+    houses.forEach(makeCard);
+
+    // transaction seguro pra evitar race conditions
+    async function changePoints(houseId, delta){
+      const ref = doc(db, "casas", houseId);
+      try{
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref);
+          let current = 0;
+          if(snap.exists()) current = snap.data().pontos || 0;
+          let next = current + delta;
+          if(next < 0) next = 0;
+          tx.set(ref, { pontos: next }, { merge: true });
+        });
+      }catch(e){
+        console.error("Erro ao alterar pontos:", e);
+        alert("Erro ao alterar pontos: " + (e.message || e));
+      }
+    }
+  </script>
+</body>
+</html>
